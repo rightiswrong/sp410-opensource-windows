@@ -56,9 +56,7 @@ device_kind(const device_t *d)
   return names[d->kind];
 }
 
-#if defined(__GNUC__) || defined(__clang__)
-__attribute__((format(printf, 3, 4)))
-#endif
+SP410_PRINTF(3, 4)
 static void
 seterr(char *err, size_t errlen, const char *fmt, ...)
 {

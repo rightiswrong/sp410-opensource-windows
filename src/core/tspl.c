@@ -30,7 +30,9 @@ typedef struct
   int                err;
 } writer_t;
 
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__MINGW32__) && !defined(__clang__)
+__attribute__((format(gnu_printf, 2, 3)))
+#elif defined(__GNUC__) || defined(__clang__)
 __attribute__((format(printf, 2, 3)))
 #endif
 static void
