@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    # Everything is built on Linux with open-source tools only:
+    # GCC (tests), MinGW-w64 (Windows binaries), NSIS (installer).
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y build-essential gcc-mingw-w64-x86-64 nsis python3
+      - name: Native build and tests (-Werror)
+        run: scripts/ci-run.sh "native tests" make CFLAGS="-O2 -g -Werror" check
+      - name: AddressSanitizer + UBSan
+        run: |
+          rm -rf build/native
+          scripts/ci-run.sh "asan tests" make CFLAGS="-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -Werror" \
+            LDFLAGS="-fsanitize=address,undefined" check
+      - name: ThreadSanitizer
+        run: |
+          rm -rf build/native
+          scripts/ci-run.sh "tsan tests" make CFLAGS="-O1 -g -fsanitize=thread -Werror" LDFLAGS="-fsanitize=thread" check
+      - name: Windows x64 binaries (MinGW-w64)
+        run: scripts/ci-run.sh "mingw build" make windows CFLAGS="-O2 -Werror"
+      - name: Installer (NSIS)
+        run: scripts/ci-run.sh "nsis" make installer CFLAGS="-O2 -Werror"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sp410-opensource-windows
+          path: |
+            build/sp410-opensource-windows-*-setup.exe
+            build/windows-x86_64/sp410-ippd.exe
+            build/windows-x86_64/sp410-cli.exe
+          if-no-files-found: error
+
+  windows:
+    # Runs the same test suite against the real .exe files, then installs the
+    # package on a real Windows machine and prints through Windows' own
+    # IPP Class Driver.
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: sp410-opensource-windows
+          path: build
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test suite against the Windows binaries
+        shell: pwsh
+        run: |
+          python tests/run_tests.py --ippd build/windows-x86_64/sp410-ippd.exe --cli build/windows-x86_64/sp410-cli.exe -v *> test-output.txt
+          $rc = $LASTEXITCODE
+          Get-Content test-output.txt
+          if ($rc -ne 0) {
+            $tail = (Get-Content test-output.txt -Tail 60) -join "%0A"
+            Write-Output "::error title=Windows test suite::$tail"
+            exit $rc
+          }
+      - name: PowerShell scripts parse
+        shell: pwsh
+        run: |
+          foreach ($f in Get-ChildItem installer/*.ps1, tests/*.ps1) {
+            $errs = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$errs) | Out-Null
+            if ($errs) { $errs | ForEach-Object { Write-Output "::error file=$($f.Name)::$($_.Message)" }; exit 1 }
+          }
+      - name: Install, print through Windows, uninstall
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem build/sp410-opensource-windows-*-setup.exe | Select-Object -First 1).FullName
+          powershell -NoProfile -ExecutionPolicy Bypass -File tests/e2e-windows.ps1 -Setup $setup *> e2e-output.txt
+          $rc = $LASTEXITCODE
+          Get-Content e2e-output.txt
+          if ($rc -ne 0) {
+            $tail = (Get-Content e2e-output.txt -Tail 70) -join "%0A"
+            Write-Output "::error title=Windows end-to-end::$tail"
+            exit $rc
+          }
+      - name: Decode the page Windows printed
+        shell: pwsh
+        run: |
+          $f = Get-ChildItem C:\sp410-e2e\job-*.prn | Select-Object -First 1
+          python tools/tspl_decode.py $f.FullName --png-dir e2e-render
+          python -c "import sys; sys.path.insert(0,'tools'); import tspl_decode as t; s=t.parse(open(r'$($f.FullName)','rb').read()); l=s.labels[0]; print(l.width, l.height, l.black_dots()); assert (l.width, l.height) == (812, 1219) and l.black_dots() > 500, 'unexpected label'"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-e2e-capture
+          path: |
+            C:\sp410-e2e\*.prn
+            e2e-output.txt
+            test-output.txt
+          if-no-files-found: ignore
+
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get install -y shellcheck
+      - run: shellcheck scripts/*.sh
+      - run: python3 -m py_compile tools/*.py tests/*.py

@@ -1,0 +1,22 @@
+# build output
+/build/
+*.o
+*.exe
+*.res.o
+
+# reverse-engineering workspaces - never commit vendor material
+/vendor/
+/vendor-inspect/
+*.pcap
+*.pcapng
+# print streams, except fixtures we generated ourselves
+*.prn
+!tests/fixtures/*.prn
+
+# editors / OS
+*.swp
+*~
+.vscode/
+.idea/
+.DS_Store
+__pycache__/
