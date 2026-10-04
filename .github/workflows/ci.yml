@@ -84,18 +84,25 @@ jobs:
             Write-Output "::error title=Windows end-to-end::$tail"
             exit $rc
           }
+          $summary = (Select-String -Path e2e-output.txt -Pattern '^(printer:|captured|service running|status page|uninstalled|Added printer|Driver:|Add-Printer)' | ForEach-Object { $_.Line }) -join "%0A"
+          Write-Output "::notice title=Windows end-to-end::$summary"
       - name: Decode the page Windows printed
         shell: pwsh
         run: |
-          $f = Get-ChildItem C:\sp410-e2e\job-*.prn | Select-Object -First 1
-          python tools/tspl_decode.py $f.FullName --png-dir e2e-render
+          New-Item -ItemType Directory -Force e2e-capture | Out-Null
+          Copy-Item C:\sp410-e2e\job-*.prn e2e-capture\
+          $f = Get-ChildItem e2e-capture\job-*.prn | Select-Object -First 1
+          python tools/tspl_decode.py $f.FullName --pbm-dir e2e-capture > e2e-capture\commands.txt
+          Get-Content e2e-capture\commands.txt
           python -c "import sys; sys.path.insert(0,'tools'); import tspl_decode as t; s=t.parse(open(r'$($f.FullName)','rb').read()); l=s.labels[0]; print(l.width, l.height, l.black_dots()); assert (l.width, l.height) == (812, 1219) and l.black_dots() > 500, 'unexpected label'"
+          $cmds = (Get-Content e2e-capture\commands.txt | Select-Object -First 14) -join "%0A"
+          Write-Output "::notice title=TSPL from a Windows print job::$cmds"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: windows-e2e-capture
           path: |
-            C:\sp410-e2e\*.prn
+            e2e-capture
             e2e-output.txt
             test-output.txt
           if-no-files-found: ignore
