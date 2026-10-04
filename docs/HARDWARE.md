@@ -22,7 +22,7 @@ manufacturer materials used; no vendor driver was downloaded or examined.
 
 | Model | Windows status | Linux status (same conversion code) |
 |---|---|---|
-| iDPRT SP410 | protocol-compatible, **awaiting Windows hardware report** | **confirmed working** (Raspberry Pi 3B+, sp410-cups-driver) |
+| iDPRT SP410 | install and print path verified on Windows in CI (IPP Class Driver → service → TSPL); **awaiting a physical-printer report** | **confirmed working** (Raspberry Pi 3B+, sp410-cups-driver) |
 | iDPRT SP410BT | protocol-compatible, awaiting report (USB or Bluetooth COM) | awaiting report |
 | iDPRT SP420 | protocol-compatible, awaiting report | other open TSPL drivers report it working |
 

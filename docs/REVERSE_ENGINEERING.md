@@ -51,7 +51,7 @@ guarantee it (see [ARCHITECTURE.md](ARCHITECTURE.md#why-the-output-matches-the-l
 | 1 | Does Windows bind `usbprint.sys` to every SP410 revision? | Yes (it is a USB printer-class device) | `sp410-cli list` on real units |
 | 2 | Does `usbprint` return the `ESC !?` status byte on this printer? | Probably (bidirectional printer class) | `sp410-cli status` over USB |
 | 3 | Product ID on Windows | `20D1:7008` (community tables) | Device Manager → Hardware Ids |
-| 4 | Do all Windows 10 builds accept `Add-Printer -IppURL`? | Windows 11 yes; older builds use the fallback that names the IPP Class Driver, or the manual steps | Reports from Windows 10 users |
+| 4 | Do all Windows 10 builds accept `Add-Printer -IppURL`? | Works on Windows Server 2025 (CI): the queue gets the Microsoft IPP Class Driver on a `WSD-…` port. Older builds fall back to naming the IPP Class Driver, or the manual steps | Reports from Windows 10 users |
 | 5 | Does Windows' IPP Class Driver honour `copies`? | Older versions ignore it; then copies come out as repeated pages | Print 3 copies, compare labels vs jobs |
 | 6 | SP410BT Bluetooth baud rate | 115200 (SPP usually ignores it) | Report from an SP410BT owner |
 | 7 | Status bit 6 meaning on SP410 | "cover open / model-specific" | Open the cover, `sp410-cli status` |

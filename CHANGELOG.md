@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [0.1.0] - unreleased
 
+### Fixed
+- MinGW-w64 GCC builds: printf format checking now matches MinGW's C99
+  printf (`%zu`), so the Windows build passes with `-Werror`.
+- Log lines are flushed immediately, so none are lost when the service's
+  output is a pipe and the process is stopped.
+
 ### Added
 - `sp410-ippd`: IPP Everywhere printer service for the iDPRT SP410 family.
   Windows prints to it through its in-box Microsoft IPP Class Driver, so no

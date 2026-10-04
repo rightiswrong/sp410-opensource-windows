@@ -10,11 +10,14 @@ uses the same clean-room conversion code. That code has been confirmed on a
 real SP410 under Linux, and it produces byte-identical TSPL output here.
 No vendor code, binaries or installers were used or consulted.
 
-> **Status: 0.1.0, awaiting a hardware test on Windows.** The conversion
-> path produces exactly the output the Linux driver sends to a working SP410
-> (checked byte for byte), and the service passes a 21-case end-to-end test
-> suite on Linux and on Windows. Printing from Windows to a physical SP410
-> has not been reported yet — see [docs/HARDWARE.md](docs/HARDWARE.md).
+> **Status: 0.1.0, verified on Windows; awaiting a test with a physical
+> SP410 on Windows.** On every commit, CI installs the package on a real
+> Windows machine. Windows puts the "iDPRT SP410" printer on its own
+> *Microsoft IPP Class Driver*, prints a page through it, and the service
+> turns that page into a 4 × 6 in TSPL label, then everything uninstalls
+> cleanly. The TSPL is byte-identical to what the Linux driver sends to a
+> working SP410. What remains is a print on a physical SP410 from Windows;
+> see [docs/HARDWARE.md](docs/HARDWARE.md#reporting-your-printer).
 
 ## How it works
 
