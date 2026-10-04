@@ -67,7 +67,8 @@ class Server:
             raise RuntimeError("sp410-ippd did not start:\n" + self.logtext())
 
     def logtext(self):
-        self.log.flush()
+        if not self.log.closed:
+            self.log.flush()
         return (self.tmp / "ippd.log").read_text(errors="replace")
 
     def ipp(self, req: Request, doc=b"", **kw):

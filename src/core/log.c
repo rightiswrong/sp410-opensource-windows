@@ -61,6 +61,7 @@ log_msg(log_level_t level, const char *fmt, ...)
     strcpy(stamp, "-");
 
   fprintf(stderr, "%s %-5s %s\n", stamp, tags[level], msg);
+  fflush(stderr);       /* may be a pipe (service manager, tests): never lose lines */
   if (g_file)
   {
     fprintf(g_file, "%s %-5s %s\n", stamp, tags[level], msg);
