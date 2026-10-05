@@ -48,7 +48,7 @@ guarantee it (see [ARCHITECTURE.md](ARCHITECTURE.md#why-the-output-matches-the-l
 
 | # | Question | Assumption now | How to settle it |
 |---|---|---|---|
-| 1 | Does Windows bind `usbprint.sys` to every SP410 revision? | Yes (it is a USB printer-class device) | `sp410-cli list` on real units |
+| 1 | Does Windows bind `usbprint.sys` to the SP410? | **Settled: yes.** Printing over USB works on Windows 11 without any vendor driver | — |
 | 2 | Does `usbprint` return the `ESC !?` status byte on this printer? | Probably (bidirectional printer class) | `sp410-cli status` over USB |
 | 3 | Product ID on Windows | `20D1:7008` (community tables) | Device Manager → Hardware Ids |
 | 4 | Do all Windows 10 builds accept `Add-Printer -IppURL`? | Works on Windows Server 2025 (CI): the queue gets the Microsoft IPP Class Driver on a `WSD-…` port. Older builds fall back to naming the IPP Class Driver, or the manual steps | Reports from Windows 10 users |

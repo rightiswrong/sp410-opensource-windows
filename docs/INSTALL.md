@@ -6,7 +6,8 @@
    "iDPRT SP410" from the vendor driver, remove that printer first
    (Settings → Printers & scanners → the printer → Remove) so two drivers do
    not compete for the USB port.
-2. Run `sp410-opensource-windows-<version>-setup.exe` and accept the
+2. Download the installer from the project's Releases page and run
+   `sp410-opensource-windows-<version>-setup.exe`; accept the
    administrator prompt.
 3. Keep all three components selected:
    - **Driver service** installs `sp410-ippd.exe` as the "SP410 Open Driver"
@@ -23,14 +24,14 @@
 The installer is built by CI and is not signed with a paid code-signing
 certificate, so Windows SmartScreen may show "Windows protected your PC".
 Choose **More info → Run anyway**. To check what you are running, compare
-the file's SHA-256 (`Get-FileHash setup.exe`) with the one shown in the
-GitHub Actions run that produced it, or build it yourself (README → Build
-from source).
+the file's SHA-256 (`Get-FileHash setup.exe`) with `SHA256SUMS.txt` on the
+release page, which CI generates in the same run that builds the installer.
+You can also build it yourself (README → Build from source).
 
 ### Silent / scripted install
 
 ```bat
-sp410-opensource-windows-0.1.0-setup.exe /S
+sp410-opensource-windows-1.0.0-setup.exe /S
 "C:\Program Files\SP410 Open Driver\uninstall.exe" /S
 ```
 

@@ -10,14 +10,10 @@ uses the same clean-room conversion code. That code has been confirmed on a
 real SP410 under Linux, and it produces byte-identical TSPL output here.
 No vendor code, binaries or installers were used or consulted.
 
-> **Status: 0.1.0, verified on Windows; awaiting a test with a physical
-> SP410 on Windows.** On every commit, CI installs the package on a real
-> Windows machine. Windows puts the "iDPRT SP410" printer on its own
-> *Microsoft IPP Class Driver*, prints a page through it, and the service
-> turns that page into a 4 × 6 in TSPL label, then everything uninstalls
-> cleanly. The TSPL is byte-identical to what the Linux driver sends to a
-> working SP410. What remains is a print on a physical SP410 from Windows;
-> see [docs/HARDWARE.md](docs/HARDWARE.md#reporting-your-printer).
+> **Status: 1.0.0, confirmed on hardware.** Printing to a physical SP410 over
+> USB from Windows 11 works through the installer, the service and Windows'
+> own IPP Class Driver. CI also installs, prints and uninstalls on a real
+> Windows machine for every commit.
 
 ## How it works
 
@@ -51,9 +47,10 @@ Print Mode. Details and the alternatives considered:
 ## Install
 
 1. Plug in the SP410 by USB and switch it on.
-2. Download `sp410-opensource-windows-<version>-setup.exe` from the latest
-   successful [CI run](https://github.com/rightiswrong/sp410-opensource-windows/actions)
-   (artifact **sp410-opensource-windows**) or from Releases.
+2. Download `sp410-opensource-windows-<version>-setup.exe` from
+   [Releases](https://github.com/rightiswrong/sp410-opensource-windows/releases/latest).
+   Optionally check it against `SHA256SUMS.txt` there
+   (`Get-FileHash <file>` in PowerShell).
 3. Run it and accept the Windows administrator prompt.
    Windows SmartScreen may warn because the installer is not code-signed;
    choose **More info → Run anyway** (see [docs/INSTALL.md](docs/INSTALL.md#smartscreen)).
@@ -116,7 +113,7 @@ Everything builds on Linux with open-source tools (GCC, MinGW-w64, NSIS):
 sudo apt install build-essential gcc-mingw-w64-x86-64 nsis python3
 make check          # native build + 21 end-to-end tests (no printer needed)
 make windows        # build/windows-x86_64/sp410-ippd.exe, sp410-cli.exe
-make installer      # build/sp410-opensource-windows-0.1.0-setup.exe
+make installer      # build/sp410-opensource-windows-1.0.0-setup.exe
 ```
 
 [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) also works

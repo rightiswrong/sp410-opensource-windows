@@ -114,3 +114,68 @@ jobs:
       - run: sudo apt-get install -y shellcheck
       - run: shellcheck scripts/*.sh
       - run: python3 -m py_compile tools/*.py tests/*.py
+
+  release:
+    # Runs only for a version tag (e.g. v1.0.0), and only after the build,
+    # the Windows test suite and the Windows install/print/uninstall check
+    # have all passed in this same run. Publishes exactly those binaries.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, windows, lint]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: sp410-opensource-windows
+          path: build
+      - name: Check the tag matches VERSION
+        run: |
+          v="$(cat VERSION)"
+          if [ "${GITHUB_REF_NAME}" != "v${v}" ]; then
+            echo "::error title=Release::tag ${GITHUB_REF_NAME} does not match VERSION ${v}"
+            exit 1
+          fi
+          echo "VERSION=${v}" >> "$GITHUB_ENV"
+      - name: Assemble release files
+        run: |
+          set -euo pipefail
+          mkdir -p dist portable
+          cp "build/sp410-opensource-windows-${VERSION}-setup.exe" dist/
+          cp build/windows-x86_64/sp410-ippd.exe build/windows-x86_64/sp410-cli.exe \
+             installer/add-printer.ps1 installer/remove-printer.ps1 installer/sp410.ini portable/
+          cp README.md portable/README.txt
+          cp LICENSE portable/LICENSE.txt
+          (cd portable && zip -q -9 "../dist/sp410-opensource-windows-${VERSION}-x64-portable.zip" *)
+          (cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          # Release notes: this version's CHANGELOG section plus checksums.
+          awk -v v="${VERSION}" '
+            $0 ~ "^## \\[" v "\\]" {on=1; next}
+            on && /^## \[/ {exit}
+            on {print}' CHANGELOG.md > notes.md
+          {
+            echo
+            echo "### Install"
+            echo
+            echo "Download \`sp410-opensource-windows-${VERSION}-setup.exe\` and run it (64-bit Windows 10 or 11)."
+            echo "The installer is not code-signed; if SmartScreen warns, choose **More info > Run anyway**."
+            echo "The portable zip contains the same programs for manual or scripted setups (see docs/INSTALL.md)."
+            echo
+            echo "### SHA-256"
+            echo
+            echo '```'
+            cat dist/SHA256SUMS.txt
+            echo '```'
+            echo
+            echo "Built and tested by CI run ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} from commit ${GITHUB_SHA}."
+          } >> notes.md
+          cat notes.md
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --title "SP410 Open Driver for Windows ${VERSION}" \
+            --notes-file notes.md \
+            --verify-tag

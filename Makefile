@@ -71,11 +71,11 @@ $(OUT)/%.res.o: installer/%.rc installer/app.manifest VERSION | $(OUT)
 
 comma := ,
 
-$(IPPD): $(CORE) $(PLAT) $(SERVER) src/server/main.c $(HDRS) $(RES_IPPD) | $(OUT)
+$(IPPD): $(CORE) $(PLAT) $(SERVER) src/server/main.c $(HDRS) $(RES_IPPD) VERSION | $(OUT)
 	$(CC) $(ALL_CFLAGS) -o $@ $(CORE) $(PLAT) $(SERVER) src/server/main.c $(RES_IPPD) \
 	  $(LDFLAGS) $(STATIC) $(LIBS) -lm
 
-$(CLI): $(CORE) $(PLAT) src/server/config.c src/cli/main.c $(HDRS) $(RES_CLI) | $(OUT)
+$(CLI): $(CORE) $(PLAT) src/server/config.c src/cli/main.c $(HDRS) $(RES_CLI) VERSION | $(OUT)
 	$(CC) $(ALL_CFLAGS) -o $@ $(CORE) $(PLAT) src/server/config.c src/cli/main.c $(RES_CLI) \
 	  $(LDFLAGS) $(STATIC) $(LIBS) -lm
 

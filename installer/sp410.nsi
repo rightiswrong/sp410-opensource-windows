@@ -3,7 +3,7 @@
 ; Copyright 2026 The sp410-opensource-windows contributors.
 ;
 ; Built with NSIS (open source, zlib licence):
-;   makensis -DVERSION=0.1.0 -DBINDIR=..\build\windows-x86_64 -DOUTFILE=..\build\setup.exe installer\sp410.nsi
+;   makensis -DVERSION=1.0.0 -DBINDIR=..\build\windows-x86_64 -DOUTFILE=..\build\setup.exe installer\sp410.nsi
 ; (`make installer` passes these for you.)
 ;
 ; Installs:
