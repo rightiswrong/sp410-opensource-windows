@@ -16,8 +16,9 @@ First stable release.
   decodes the resulting TSPL and uninstalls, on every commit.
 
 ### Added
-- Release automation: pushing a `v*` tag builds, tests and publishes the
-  installer, a portable zip and SHA-256 checksums as a GitHub release.
+- Release automation: pushing a `v*` tag, or running the CI workflow by hand
+  with "publish_release", rebuilds, retests and publishes the installer, a
+  portable zip and SHA-256 checksums as a GitHub release.
 
 ## [0.1.0] - 2026-10-04 (pre-release, CI only)
 
