@@ -41,3 +41,15 @@ and also installs the package on a Windows runner and prints through the
 IPP Class Driver.
 
 Update `CHANGELOG.md`, and `MANIFEST.md` if you add, move or remove files.
+
+## Releasing
+
+1. Set the new version in `VERSION` and add its section to `CHANGELOG.md`
+   (`## [X.Y.Z] - YYYY-MM-DD`); push to `main` and wait for CI to pass.
+2. Either push a tag (`git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z`),
+   or on GitHub open **Actions → CI → Run workflow**, choose `main`, tick
+   **publish_release** and run it.
+3. CI rebuilds, reruns every test including the Windows install/print check,
+   and only then publishes the release: the installer, a portable zip,
+   `SHA256SUMS.txt`, and notes taken from the changelog. A manual run tags
+   the exact commit it built.

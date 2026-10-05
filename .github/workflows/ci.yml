@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Publish a release for the version in VERSION (creates tag vX.Y.Z on this commit)"
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -116,10 +121,11 @@ jobs:
       - run: python3 -m py_compile tools/*.py tests/*.py
 
   release:
-    # Runs only for a version tag (e.g. v1.0.0), and only after the build,
-    # the Windows test suite and the Windows install/print/uninstall check
-    # have all passed in this same run. Publishes exactly those binaries.
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Runs for a pushed version tag (e.g. v1.0.0), or when started by hand
+    # from the Actions tab with "publish_release" ticked - and only after the
+    # build, the Windows test suite and the Windows install/print/uninstall
+    # check have all passed in this same run. Publishes exactly those binaries.
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release)
     needs: [build, windows, lint]
     runs-on: ubuntu-24.04
     permissions:
@@ -130,14 +136,20 @@ jobs:
         with:
           name: sp410-opensource-windows
           path: build
-      - name: Check the tag matches VERSION
+      - name: Work out the release tag
         run: |
           v="$(cat VERSION)"
-          if [ "${GITHUB_REF_NAME}" != "v${v}" ]; then
-            echo "::error title=Release::tag ${GITHUB_REF_NAME} does not match VERSION ${v}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            if [ "${GITHUB_REF_NAME}" != "v${v}" ]; then
+              echo "::error title=Release::tag ${GITHUB_REF_NAME} does not match VERSION ${v}"
+              exit 1
+            fi
+          elif [ "${GITHUB_REF_NAME}" != "main" ]; then
+            echo "::error title=Release::manual releases are only made from main (got ${GITHUB_REF_NAME})"
             exit 1
           fi
           echo "VERSION=${v}" >> "$GITHUB_ENV"
+          echo "TAG=v${v}" >> "$GITHUB_ENV"
       - name: Assemble release files
         run: |
           set -euo pipefail
@@ -175,7 +187,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" dist/* \
-            --title "SP410 Open Driver for Windows ${VERSION}" \
-            --notes-file notes.md \
-            --verify-tag
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            # Release already exists (e.g. drafted in the GitHub UI): refresh it.
+            gh release upload "${TAG}" dist/* --clobber
+            gh release edit "${TAG}" --title "SP410 Open Driver for Windows ${VERSION}" --notes-file notes.md
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            gh release create "${TAG}" dist/* --verify-tag \
+              --title "SP410 Open Driver for Windows ${VERSION}" --notes-file notes.md
+          else
+            # Manual run from main: tag the exact commit that was built and tested.
+            gh release create "${TAG}" dist/* --target "${GITHUB_SHA}" \
+              --title "SP410 Open Driver for Windows ${VERSION}" --notes-file notes.md
+          fi
+          gh release view "${TAG}" --json url,assets --jq '.url, (.assets[].name)'
