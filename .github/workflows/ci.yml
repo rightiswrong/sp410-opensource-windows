@@ -10,13 +10,17 @@ on:
         type: boolean
         default: false
 
+# Least privilege: jobs get read-only tokens unless they ask for more.
+permissions:
+  contents: read
+
 jobs:
   build:
     # Everything is built on Linux with open-source tools only:
     # GCC (tests), MinGW-w64 (Windows binaries), NSIS (installer).
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Install toolchain
         run: sudo apt-get update && sudo apt-get install -y build-essential gcc-mingw-w64-x86-64 nsis python3
       - name: Native build and tests (-Werror)
@@ -34,7 +38,7 @@ jobs:
         run: scripts/ci-run.sh "mingw build" make windows CFLAGS="-O2 -Werror"
       - name: Installer (NSIS)
         run: scripts/ci-run.sh "nsis" make installer CFLAGS="-O2 -Werror"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sp410-opensource-windows
           path: |
@@ -50,12 +54,12 @@ jobs:
     needs: build
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: sp410-opensource-windows
           path: build
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
       - name: Test suite against the Windows binaries
@@ -102,7 +106,7 @@ jobs:
           python -c "import sys; sys.path.insert(0,'tools'); import tspl_decode as t; s=t.parse(open(r'$($f.FullName)','rb').read()); l=s.labels[0]; print(l.width, l.height, l.black_dots()); assert (l.width, l.height) == (812, 1219) and l.black_dots() > 500, 'unexpected label'"
           $cmds = (Get-Content e2e-capture\commands.txt | Select-Object -First 14) -join "%0A"
           Write-Output "::notice title=TSPL from a Windows print job::$cmds"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: windows-e2e-capture
@@ -115,7 +119,7 @@ jobs:
   lint:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - run: sudo apt-get install -y shellcheck
       - run: shellcheck scripts/*.sh
       - run: python3 -m py_compile tools/*.py tests/*.py
@@ -131,8 +135,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: sp410-opensource-windows
           path: build
