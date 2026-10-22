@@ -25,6 +25,7 @@ config_defaults(config_t *c)
   strcpy(c->model, "SP410");
   strcpy(c->log_level, "info");
   c->max_job_mb = 64;
+  c->max_conns = 64;
   strcpy(c->device, "usb");
   c->stall_timeout_s = 120;
   c->retry_timeout_s = 300;
@@ -63,6 +64,17 @@ static void
 copy(char *dst, size_t size, const char *src)
 {
   snprintf(dst, size, "%s", src);
+}
+
+static int
+cfg_bool(const char *key, const char *v, int def)
+{
+  if (!strcasecmp(v, "true") || !strcasecmp(v, "yes") || !strcasecmp(v, "on") || !strcmp(v, "1"))
+    return 1;
+  if (!strcasecmp(v, "false") || !strcasecmp(v, "no") || !strcasecmp(v, "off") || !strcmp(v, "0"))
+    return 0;
+  log_msg(LOG_WARN, "config: ignoring %s=\"%s\" (expected true/false)", key, v);
+  return def;
 }
 
 static int
@@ -140,6 +152,7 @@ config_load(config_t *c, const char *path)
       else if (!strcasecmp(key, "log-level"))  copy(c->log_level, sizeof(c->log_level), val);
       else if (!strcasecmp(key, "log-file"))   copy(c->log_file, sizeof(c->log_file), val);
       else if (!strcasecmp(key, "max-job-mb")) c->max_job_mb = to_int(key, val, 1, 2048, c->max_job_mb);
+      else if (!strcasecmp(key, "max-connections")) c->max_conns = to_int(key, val, 1, 4096, c->max_conns);
       else log_msg(LOG_WARN, "config %s:%d: unknown [server] key \"%s\"", path, lineno, key);
     }
     else if (!strcasecmp(section, "device"))
@@ -147,6 +160,7 @@ config_load(config_t *c, const char *path)
       if (!strcasecmp(key, "uri"))                  copy(c->device, sizeof(c->device), val);
       else if (!strcasecmp(key, "stall-timeout"))   c->stall_timeout_s = to_int(key, val, 1, 86400, c->stall_timeout_s);
       else if (!strcasecmp(key, "retry-timeout"))   c->retry_timeout_s = to_int(key, val, 0, 86400, c->retry_timeout_s);
+      else if (!strcasecmp(key, "allow-file-device")) c->allow_file_device = cfg_bool(key, val, c->allow_file_device);
       else log_msg(LOG_WARN, "config %s:%d: unknown [device] key \"%s\"", path, lineno, key);
     }
     else if (!strcasecmp(section, "media"))
@@ -196,6 +210,8 @@ static const char template_text[] =
 "; debug, info, warn or error\n"
 "log-level = info\n"
 "max-job-mb = 64\n"
+"; maximum simultaneous connections before new ones are refused\n"
+"max-connections = 64\n"
 "\n"
 "[device]\n"
 "; usb                         first iDPRT USB printer (default)\n"
@@ -208,6 +224,10 @@ static const char template_text[] =
 "stall-timeout = 120\n"
 "; seconds to keep retrying when the printer is off or unplugged\n"
 "retry-timeout = 300\n"
+"; allow the file: device scheme in the service (writes jobs to a file path).\n"
+"; Off by default: a file: device lets whoever can edit this file have the\n"
+"; service write to an arbitrary path. Only enable for debugging.\n"
+"allow-file-device = false\n"
 "\n"
 "[media]\n"
 "; default label size: na_index-4x6_4x6in, oe_4x2-label_4x2in, om_100x150-label_100x150mm ...\n"

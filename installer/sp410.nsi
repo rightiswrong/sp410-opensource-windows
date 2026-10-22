@@ -180,6 +180,19 @@ Section "Driver service (required)" SecCore
   ${EndIf}
   SetOutPath "$INSTDIR"
 
+  ; Harden the config/log directory. The service runs as LocalSystem and
+  ; re-reads sp410.ini for every job, so a non-admin who could modify it could
+  ; redirect the SYSTEM service. Remove inheritance and grant:
+  ;   SYSTEM (S-1-5-18) and Administrators (S-1-5-32-544) = Full,
+  ;   Users (S-1-5-32-545) = Read & execute only.
+  ; Well-known SIDs are used so this is locale-independent.
+  DetailPrint "Securing $APPDATA\SP410 (config is admin-writable only)..."
+  nsExec::ExecToLog 'icacls "$APPDATA\SP410" /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "*S-1-5-32-545:(OI)(CI)RX"'
+  Pop $0
+  ${If} $0 != 0
+    DetailPrint "warning: could not set ACLs on $APPDATA\SP410 (icacls returned $0)"
+  ${EndIf}
+
   DetailPrint "Registering the ${APPNAME} service..."
   nsExec::ExecToLog 'sc.exe query ${SVCNAME}'
   Pop $0
@@ -227,6 +240,8 @@ Section "Start menu shortcuts" SecShortcuts
   SetShellVarContext all
   CreateDirectory "$SMPROGRAMS\${APPNAME}"
   WriteINIStr "$SMPROGRAMS\${APPNAME}\Printer status.url" "InternetShortcut" "URL" "http://127.0.0.1:${PORT}/"
+  ; Note: sp410.ini is admin-writable only (see the ACL step above), so saving
+  ; edits requires running Notepad elevated ("Run as administrator").
   CreateShortcut "$SMPROGRAMS\${APPNAME}\Edit printer settings.lnk" "$WINDIR\notepad.exe" '"$APPDATA\SP410\sp410.ini"'
   CreateShortcut "$SMPROGRAMS\${APPNAME}\Print a test label.lnk" "$INSTDIR\sp410-cli.exe" "test-label"
   CreateShortcut "$SMPROGRAMS\${APPNAME}\Calibrate label size.lnk" "$INSTDIR\sp410-cli.exe" "calibrate"

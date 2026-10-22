@@ -218,7 +218,19 @@ http_read_request(http_conn_t *c, http_req_t *req, size_t max_body, int idle_ms)
         return HTTP_BAD;
       if (sz == 0)
         break;
-      if ((rc = grow(req, &cap, req->body_len + sz, max_body)) != 0)
+      /*
+       * Bound the chunk against the remaining allowance BEFORE any addition,
+       * so req->body_len + sz can never wrap SIZE_MAX (which would let a tiny
+       * allocation be followed by a huge read_exact - a heap overflow).
+       * The invariant body_len <= max_body is maintained by grow(), so
+       * max_body - body_len does not underflow.
+       */
+      if (sz > (unsigned long long)(max_body - req->body_len))
+      {
+        req->keep_alive = 0;
+        return HTTP_TOO_LARGE;
+      }
+      if ((rc = grow(req, &cap, req->body_len + (size_t)sz, max_body)) != 0)
       {
         req->keep_alive = 0;
         return rc;
@@ -271,6 +283,8 @@ http_respond(http_conn_t *c, int status, const char *reason, const char *ctype,
                "Content-Type: %s\r\n"
                "Content-Length: %zu\r\n"
                "Cache-Control: no-store\r\n"
+               "X-Content-Type-Options: nosniff\r\n"
+               "Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'\r\n"
                "Connection: %s\r\n\r\n",
                status, reason, ctype ? ctype : "text/plain", len,
                keep_alive ? "keep-alive" : "close");

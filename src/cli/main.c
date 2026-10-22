@@ -81,7 +81,7 @@ open_dev(const opts_t *o)
 
   if (o->dry_run)
     return NULL;
-  if ((d = device_open(o->device, 0, err, sizeof(err))) == NULL)
+  if ((d = device_open(o->device, 0, 1, err, sizeof(err))) == NULL)  /* CLI is interactive: file: allowed */
     fprintf(stderr, "sp410-cli: %s\n", err);
   return d;
 }

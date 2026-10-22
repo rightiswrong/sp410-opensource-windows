@@ -4,6 +4,34 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Security
+- Fixed a heap buffer overflow in the HTTP server's chunked-request handling:
+  a crafted Transfer-Encoding: chunked body could overflow the body-length
+  accumulator and trigger an out-of-bounds write in the LocalSystem service
+  (reachable by any local user on 127.0.0.1, or remotely if shared). Chunk
+  sizes are now bounded before allocation. (audit V1)
+- Added a configurable concurrent-connection cap ([server] max-connections,
+  default 64) so a connection flood or Slowloris cannot exhaust the service.
+  Excess connections get an immediate 503. (audit V2)
+- The status page now HTML-escapes the client Host header, and all responses
+  carry Content-Security-Policy and X-Content-Type-Options: nosniff, removing
+  a reflected-XSS vector. (audit V3)
+- The file: device scheme is now disabled in the service unless
+  [device] allow-file-device = true is set, so a tampered config cannot make
+  the SYSTEM service write to an arbitrary path. The CLI still allows file:.
+  (audit V4)
+- Installer: %ProgramData%\SP410 is now ACL-restricted so only SYSTEM and
+  Administrators can modify sp410.ini (Users get read-only); editing settings
+  now requires elevation. (audit V4)
+- The service logs a clear warning when bound to a non-loopback address
+  (unauthenticated network exposure). (audit V6)
+- Tightened PWG raster geometry limits (<=10000x40000, <=64 Mpx/page) to bound
+  per-page allocations. (audit V11)
+- Builds now use -fstack-protector-strong (ASLR/high-entropy/DEP already on;
+  Control Flow Guard still depends on the release toolchain). (audit V12)
+
 ## [1.0.0] - 2026-10-04
 
 First stable release.
