@@ -132,6 +132,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release)
     needs: [build, windows, lint]
     runs-on: ubuntu-24.04
+    # Publishing waits for approval from the 'release' environment's reviewers.
+    environment: release
     permissions:
       contents: write
     steps:
