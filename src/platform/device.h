@@ -25,7 +25,7 @@ typedef struct device_s device_t;
 /* Returns non-zero to abort a blocking write (job cancelled / shutting down). */
 typedef int (*device_cancel_fn)(void *ctx);
 
-device_t *device_open(const char *uri, int job_id, char *err, size_t errlen);
+device_t *device_open(const char *uri, int job_id, int allow_file, char *err, size_t errlen);
 
 /*
  * Write all bytes.  A write that makes no progress for `stall_ms` (printer out

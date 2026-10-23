@@ -41,7 +41,12 @@ endif
 WARN     := -Wall -Wextra -Wshadow -Wformat=2 -Wstrict-prototypes \
             -Wmissing-prototypes -Wno-unused-parameter
 CFLAGS   ?= -O2 -g
-ALL_CFLAGS := -std=c99 $(PLATFLAGS) -DSP410_VERSION=\"$(VERSION)\" $(WARN) $(CFLAGS)
+# Exploit-mitigation hardening. Stack canaries are supported by both gcc and
+# clang mingw; ASLR/high-entropy/DEP are on by default for these PE targets.
+# Control Flow Guard needs clang/llvm-mingw (-mguard=cf + lld) and is left to
+# the release toolchain; see docs.
+HARDEN   := -fstack-protector-strong
+ALL_CFLAGS := -std=c99 $(PLATFLAGS) -DSP410_VERSION=\"$(VERSION)\" $(WARN) $(HARDEN) $(CFLAGS)
 
 CORE     := src/core/dither.c src/core/tspl.c src/core/settings.c src/core/pwg.c \
             src/core/render.c src/core/log.c

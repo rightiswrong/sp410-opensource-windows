@@ -42,10 +42,15 @@
 #define OFF_TOTAL_PAGE_COUNT  452
 #define OFF_PAGE_SIZE_NAME    1732
 
-/* Sanity limits: generous for a 108 mm x 300 mm label at up to 600 dpi. */
-#define MAX_WIDTH             20000u
-#define MAX_HEIGHT            100000u
-#define MAX_BYTES_PER_LINE    (20000u * 8u)
+/*
+ * Sanity limits. A 108 mm x 300 mm label at 600 dpi is ~2551 x 7087 px, so
+ * these leave generous headroom while bounding how much memory one page can
+ * force the service to allocate (render builds an 8-bit plane of width*height).
+ */
+#define MAX_WIDTH             10000u
+#define MAX_HEIGHT            40000u
+#define MAX_BYTES_PER_LINE    (10000u * 8u)
+#define MAX_PIXELS            64000000u      /* 64 Mpx per page */
 
 static unsigned
 get_u32(const pwg_reader_t *r, const uint8_t *p)
@@ -150,6 +155,7 @@ pwg_next_page(pwg_reader_t *r, pwg_header_t *h)
   r->pos += PWG_HEADER_SIZE;
 
   if (!h->width || !h->height || h->width > MAX_WIDTH || h->height > MAX_HEIGHT ||
+      (uint64_t)h->width * h->height > MAX_PIXELS ||
       !h->bits_per_pixel || h->bits_per_pixel > 64 ||
       h->bytes_per_line != (h->width * h->bits_per_pixel + 7) / 8 ||
       h->bytes_per_line > MAX_BYTES_PER_LINE)

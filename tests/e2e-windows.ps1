@@ -72,6 +72,10 @@ if ($q) {
     $ini = "$env:ProgramData\SP410\sp410.ini"
     $text = Get-Content $ini -Raw
     $text = $text -replace "(?m)^uri = usb\s*$", "uri = file:$OutDir\job-{job}.prn"
+    # The installed ini carries "allow-file-device = false"; flip that line
+    # (a second key earlier in the section would be overridden by it).
+    $text = $text -replace "(?m)^allow-file-device\s*=.*$", "allow-file-device = true"
+    if ($text -notmatch "(?m)^allow-file-device = true") { throw "could not enable allow-file-device in $ini" }
     Set-Content -Path $ini -Value $text -Encoding ASCII
 
     "SP410 end-to-end test from Windows CI`r`nLine two of the label" | Out-Printer -Name $q.Name

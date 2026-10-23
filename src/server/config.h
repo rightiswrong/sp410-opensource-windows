@@ -24,11 +24,13 @@ typedef struct
   char log_level[16];
   char log_file[512];
   int  max_job_mb;
+  int  max_conns;             /* concurrent connection cap */
   /* [device] */
   char device[512];
   int  device_locked;         /* set by --device: ignore [device] uri on reload */
   int  stall_timeout_s;       /* give up when the printer accepts no data this long */
   int  retry_timeout_s;       /* keep retrying an unreachable printer this long */
+  int  allow_file_device;     /* permit the file: device scheme in the service (default off) */
   /* [media] */
   char default_media[96];
   /* [print]: passed to settings_apply() in file order */

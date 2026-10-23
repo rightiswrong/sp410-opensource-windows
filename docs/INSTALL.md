@@ -87,6 +87,26 @@ Windows Firewall, and on the other computers add an IPP printer at
 `http://<this-pc>:8631/ipp/print`. macOS, Linux, iOS and Android can print
 to it too, because it is a standard IPP Everywhere printer.
 
+> **Security note on sharing.** The IPP endpoint has no authentication, so
+> `listen = 0.0.0.0` exposes unauthenticated printing, job cancellation and
+> job metadata (user and job names) to everyone who can reach the port, in
+> cleartext. The service logs a warning when it starts in this mode. Only
+> share on a trusted network, scope the firewall rule to the intended subnet,
+> and consider `max-connections` to bound load.
+
+## Security notes
+
+- **Settings are admin-writable only.** The installer restricts
+  `C:\ProgramData\SP410` so only SYSTEM and Administrators can change
+  `sp410.ini` (other users can read it). The service runs as SYSTEM and
+  re-reads this file every job, so this prevents a standard user from
+  redirecting it. To edit settings, run Notepad **as administrator**.
+- **The `file:` device is off by default.** Writing jobs to a file path is a
+  debugging feature; enable it deliberately with `[device] allow-file-device = true`.
+  The `sp410-cli` tool always allows `file:` since you run it yourself.
+- **`max-connections`** (`[server]`, default 64) caps simultaneous
+  connections; excess clients receive HTTP 503.
+
 ## Troubleshooting
 
 | Symptom | Check |

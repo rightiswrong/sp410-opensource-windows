@@ -48,7 +48,7 @@ class Server:
         self.ini.write_text(
             "[server]\nlisten = 127.0.0.1\nport = 0\nname = Test SP410\nlog-level = debug\n"
             f"max-job-mb = {max_job_mb}\n"
-            f"[device]\nuri = {self.device}\nretry-timeout = 2\nstall-timeout = 5\n"
+            f"[device]\nuri = {self.device}\nretry-timeout = 2\nstall-timeout = 5\nallow-file-device = true\n"
             + ini_extra)
         portfile = self.tmp / "port"
         self.log = open(self.tmp / "ippd.log", "wb")
@@ -397,6 +397,82 @@ def t_status_page(c):
     conn.request("GET", "/nothing")
     assert conn.getresponse().status == 404
     conn.close()
+
+
+def _raw(port, data, read_timeout=4.0):
+    """Send raw bytes to the service, return everything it sends back."""
+    sk = socket.create_connection(("127.0.0.1", port), timeout=5)
+    try:
+        sk.sendall(data)
+        sk.settimeout(read_timeout)
+        buf = b""
+        try:
+            while True:
+                chunk = sk.recv(4096)
+                if not chunk:
+                    break
+                buf += chunk
+        except socket.timeout:
+            pass
+        return buf
+    finally:
+        sk.close()
+
+
+def t_security_chunked_oversize_rejected(c):
+    """V1: a chunk size that would overflow body_len+sz is rejected (413), not
+    acted on, and the service stays alive."""
+    s = c.server()
+    req = (b"POST /ipp/print HTTP/1.1\r\nHost: x\r\n"
+           b"Content-Type: application/ipp\r\nTransfer-Encoding: chunked\r\n\r\n"
+           b"4\r\nAAAA\r\n"                      # a small first chunk
+           b"fffffffffffffff0\r\n")             # then ~2^64 bytes announced
+    resp = _raw(s.port, req)
+    assert resp.startswith(b"HTTP/1.1 413"), resp[:60]
+    # service is unharmed and still answering
+    assert s.ipp(Request(OP["get_printer_attributes"])).status == 0
+
+
+def t_security_connection_cap(c):
+    """V2: concurrent connections are capped; excess get 503; service survives."""
+    s = c.server(ini_extra="[server]\nmax-connections = 4\n")
+    holders = [socket.create_connection(("127.0.0.1", s.port), timeout=5) for _ in range(4)]
+    try:
+        got503 = False
+        for _ in range(30):
+            resp = _raw(s.port, b"GET / HTTP/1.0\r\nHost: x\r\n\r\n", read_timeout=1.0)
+            if resp.startswith(b"HTTP/1.1 503"):
+                got503 = True
+                break
+            time.sleep(0.1)
+        assert got503, "connection cap did not trigger a 503"
+    finally:
+        for h in holders:
+            h.close()
+    time.sleep(0.2)
+    assert s.ipp(Request(OP["get_printer_attributes"])).status == 0
+
+
+def t_security_status_escapes_host(c):
+    """V3: the Host header is HTML-escaped on the status page and responses carry
+    a restrictive Content-Security-Policy."""
+    s = c.server()
+    resp = _raw(s.port, b"GET / HTTP/1.0\r\nHost: x\"><script>alert(1)</script>\r\n\r\n")
+    assert b"content-security-policy" in resp.lower(), "missing CSP header"
+    head, _, body = resp.partition(b"\r\n\r\n")
+    assert b"<script>alert(1)" not in body, "Host header reflected unescaped (XSS)"
+    assert b"&lt;script&gt;" in body, "escaped Host not found in page"
+
+
+def t_security_file_device_disabled(c):
+    """V4: the service refuses the file: device unless explicitly allowed."""
+    s = c.server(ini_extra="[device]\nallow-file-device = false\n")
+    r = s.ipp(print_req(s.port), pwg.encode([pwg.Page(64, 64)], "sgray_8"))
+    jid = r.first("job-id", TAG["job"])
+    done = s.wait_job(jid, timeout=15)
+    assert done.first("job-state") == 8, "job should abort when file: is disabled"
+    assert "disabled" in (done.first("job-state-message") or ""), done.first("job-state-message")
+    assert not list(s.out.iterdir()), "no file should be written when file: is disabled"
 
 
 def t_libcups_fixture(c):

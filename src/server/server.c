@@ -33,6 +33,7 @@
 #endif
 
 #define MAX_JOBS          100
+#define MAX_CONNS         64      /* concurrent connections; excess is refused */
 #define IDLE_TIMEOUT_MS   60000
 #define CREATE_JOB_TTL_MS 300000
 
@@ -898,10 +899,12 @@ status_page(server_t *s, const char *host, size_t *len)
   if (!p)
     return NULL;
 #define EMIT(...) do { if (n < cap) n += (size_t)snprintf(p + n, cap - n, __VA_ARGS__); } while (0)
+  char hostesc[600];
   mutex_lock(&s->lock);
   html_escape(name, sizeof(name), s->cfg.name);
   html_escape(dev, sizeof(dev), s->cfg.device);
   html_escape(msg, sizeof(msg), s->message);
+  html_escape(hostesc, sizeof(hostesc), host);   /* client Host header - must be escaped */
   EMIT("<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" "
       "content=\"width=device-width,initial-scale=1\"><meta http-equiv=\"refresh\" content=\"5\">"
       "<title>%s</title><style>body{font:15px/1.5 system-ui,sans-serif;margin:24px;"
@@ -917,7 +920,7 @@ status_page(server_t *s, const char *host, size_t *len)
       "<tr><th>Device</th><td><code>%s</code></td></tr>"
       "<tr><th>Settings file</th><td><code>%s</code></td></tr>"
       "<tr><th>Version</th><td>sp410-ippd " SP410_VERSION "</td></tr></table>",
-      host, dev, s->cfg.path[0] ? s->cfg.path : "(built-in defaults)");
+      hostesc, dev, s->cfg.path[0] ? s->cfg.path : "(built-in defaults)");
   EMIT("<h2 style=\"font-size:17px;margin-top:24px\">Recent jobs</h2><table>"
       "<tr><th>Job</th><th>Name</th><th>State</th><th>Labels</th><th>Message</th></tr>");
   for (int i = s->njobs - 1, k = 0; i >= 0 && k < 20; i --, k ++)
@@ -1117,6 +1120,7 @@ print_job(server_t *s, job_t *j)
         memcpy(cfg.device, fresh.device, sizeof(cfg.device));
       cfg.stall_timeout_s = fresh.stall_timeout_s;
       cfg.retry_timeout_s = fresh.retry_timeout_s;
+      cfg.allow_file_device = fresh.allow_file_device;
       cfg.num_print = fresh.num_print;
       memcpy(cfg.print_key, fresh.print_key, sizeof(cfg.print_key));
       memcpy(cfg.print_val, fresh.print_val, sizeof(cfg.print_val));
@@ -1135,7 +1139,7 @@ print_job(server_t *s, job_t *j)
   /* Open the printer, waiting if it is switched off or unplugged. */
   for (;;)
   {
-    k.dev = device_open(cfg.device, j->id, err, sizeof(err));
+    k.dev = device_open(cfg.device, j->id, cfg.allow_file_device, err, sizeof(err));
     if (k.dev || FLAG_GET(&j->cancel) || FLAG_GET(&s->stop))
       break;
     if (time_ms() - start > (int64_t)cfg.retry_timeout_s * 1000)
@@ -1310,6 +1314,15 @@ server_run(server_t *s)
   log_msg(LOG_INFO, "sp410-ippd " SP410_VERSION " ready: http://%s:%d/ipp/print (device %s)",
           strcmp(s->cfg.listen, "0.0.0.0") ? s->cfg.listen : "localhost", s->port, s->cfg.device);
 
+  /* The IPP endpoint has no authentication. Binding it anywhere other than the
+   * loopback interface exposes unauthenticated printing, job cancellation and
+   * job-metadata to the network. Make that loud. */
+  if (strcmp(s->cfg.listen, "127.0.0.1") && strcmp(s->cfg.listen, "::1") &&
+      strcmp(s->cfg.listen, "localhost"))
+    log_msg(LOG_WARN, "listening on %s: the printer is reachable from the network "
+            "WITHOUT authentication. Restrict access with a firewall and only share "
+            "on trusted networks.", s->cfg.listen);
+
   while (!FLAG_GET(&s->stop))
   {
     char   peer[64];
@@ -1327,6 +1340,21 @@ server_run(server_t *s)
     c->sock = cs;
     snprintf(c->peer, sizeof(c->peer), "%s", peer);
     mutex_lock(&s->lock);
+    if (s->conns >= (s->cfg.max_conns > 0 ? s->cfg.max_conns : MAX_CONNS))
+    {
+      /* Cap concurrent connections so a flood (or Slowloris) cannot exhaust
+       * threads/handles of the service. Refuse politely and move on. */
+      int open_now = s->conns;
+      mutex_unlock(&s->lock);
+      static const char busy[] =
+        "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n"
+        "Retry-After: 2\r\nConnection: close\r\n\r\n";
+      net_send_all(cs, busy, sizeof(busy) - 1);
+      net_linger_close(cs, 1000);   /* let the client read the 503 before FIN */
+      free(c);
+      log_msg(LOG_WARN, "connection from %s refused: %d already open", peer, open_now);
+      continue;
+    }
     s->conns ++;
     mutex_unlock(&s->lock);
     if (thread_start_detached(conn_thread, c))

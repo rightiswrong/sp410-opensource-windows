@@ -458,11 +458,18 @@ handle_read(device_t *d, void *buf, size_t len, int timeout_ms)
 /* ======================================================================== */
 
 device_t *
-device_open(const char *uri, int job_id, char *err, size_t errlen)
+device_open(const char *uri, int job_id, int allow_file, char *err, size_t errlen)
 {
   device_t *d = calloc(1, sizeof(*d));
   int       rc;
 
+  if (uri && !strncmp(uri, "file:", 5) && !allow_file)
+  {
+    seterr(err, errlen, "the file: device is disabled; set [device] "
+                        "allow-file-device = true to enable it");
+    free(d);
+    return NULL;
+  }
   if (!d)
     return NULL;
   d->sock = SOCK_INVALID;
